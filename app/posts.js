@@ -13,6 +13,8 @@ import {
   ListView,
   Image,
   Dimensions,
+  TouchableOpacity,
+  RefreshControl,
 } from 'react-native';
 const {height, width} = Dimensions.get('window');
 export default class Posts extends Component {
@@ -21,16 +23,28 @@ export default class Posts extends Component {
     const ds = new ListView.DataSource({rowHasChanged: (r1, r2) => r1 !== r2});
     this.state = {
       dataSource: ds.cloneWithRows([]),
+      refreshing: false,
     };
   }
   componentWillMount () {
     this.getPostsFromApiAsync();
   }
-  // onEndReached  = () => {
-  //   alert('Lol infinite scrolling!')
-  // }
+  onEndReached  = () => {
+    this.getPostsFromApiAsync();
+  }
+
+  onRefresh = () => {
+    this.setState({
+      refreshing: true,
+    })
+    this.getPostsFromApiAsync().then(() => {
+      this.setState({
+        refreshing: false
+      })
+    })
+  }
   getPostsFromApiAsync = () => {
-    return fetch('https://api.themoviedb.org/3/movie/now_playing?api_key=a07e22bc18f5cb106bfe4cc1f83ad8ed')
+    return fetch(this.props.route)
       .then((response) => response.json())
       .then((responseJson) => {
         console.log(responseJson);
@@ -44,21 +58,45 @@ export default class Posts extends Component {
   }
 
   render() {
+    if(this.state.dataSource.getRowCount() === 0 ){
+     return (
+       <View style={{marginTop:20}}>
+        <Text>Loading.....</Text>
+        </View>);
+   }
+   else{
     return (
-      <ListView
-        contentContainerStyle={styles.list}
-        dataSource={this.state.dataSource}
-        enableEmptySections
-        pageSize={2}
-        //onEndReached={this.onEndReached()}
-        //initialListSize={1}
-        renderRow={(rowData) => this.renderRow(rowData)}
-      />
+      <View>
+        <ListView
+          contentContainerStyle={styles.list}
+          dataSource={this.state.dataSource}
+          enableEmptySections
+          pageSize={2}
+          refreshControl={
+            <RefreshControl
+            refreshing={this.state.refreshing}
+            onRefresh={this.onRefresh.bind(this)}
+            />}
+          onEndReached={this.onEndReached.bind(this)}
+          renderRow={(rowData) => this.renderRow(rowData)}
+        />
+      </View>
     );
+    }
   }
 
   renderRow(rowData) {
     return (
+      <TouchableOpacity onPress={() => this.props.navigator.push({name: 'Details',
+      passProps: {
+        image: rowData.poster_path,
+        title: rowData.title,
+        date: rowData.release_date,
+        vote: rowData.vote_average,
+        overview: rowData.overview,
+        popularity: rowData.popularity,
+      }
+    })}>
       <View style={{flexDirection:'row', backgroundColor:'#FF5733'}}>
         <Image
           style={{width:100, height:100}}
@@ -68,24 +106,11 @@ export default class Posts extends Component {
           {rowData.original_title}
         </Text>
       </View >
-
+      </TouchableOpacity>
     )
   }
 }
 
 const styles = StyleSheet.create({
-  list: {
-    // marginTop: 20,
-    // flexDirection: 'row',
-    // flexWrap: 'wrap',
-    // backgroundColor: 'black',
-    // alignItems: 'center',
-  },
-  item: {
-    //width: width/2,
-    //height: width/2,
-    // width: 50,
-    // height: 50,
-    //backgroundColor: 'black'
-  }
 });
+module.exports = Posts
